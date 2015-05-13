@@ -1,5 +1,6 @@
 # Leaflet GeoJSON Clustered Tile Layer
 Renders GeoJSON tiles on an L.GeoJSON layer and allows clustering of results.
+This is probably mostly useful for single point data in the GeoJSON results
 
 (forked from glenrobertson/leaflet-tilelayer-geojson)
 
