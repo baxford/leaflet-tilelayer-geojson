@@ -1,5 +1,7 @@
-# Leaflet GeoJSON Tile Layer
-Renders GeoJSON tiles on an L.GeoJSON layer.
+# Leaflet GeoJSON Clustered Tile Layer
+Renders GeoJSON tiles on an L.GeoJSON layer and allows clustering of results.
+
+(forked from glenrobertson/leaflet-tilelayer-geojson)
 
 ## Docs
 
@@ -19,47 +21,67 @@ The following example shows how to render a GeoJSON Tile Layer for US state GeoJ
         };
 
         var geojsonURL = 'http://polymaps.appspot.com/state/{z}/{x}/{y}.json';
-        var geojsonTileLayer = new L.TileLayer.GeoJSON(geojsonURL, {
-                clipTiles: true,
+        var maxZoom = 18;
+        var geojsonClusterTileLayer = new L.TileLayer.ClusteredGeoJSON(geojsonURL, {
+                maxZoom: maxZoom,
+                clipTiles: false,
+                maxClusterRadius: 80, //A cluster will cover at most this many pixels from its center
+                showCoverageOnHover: false,
+                zoomToBoundsOnClick: true,
+                singleMarkerMode: false,
+                disableClusteringAtZoom: maxZoom,
+                iconCreateFunction: function (cluster) {
+                    var html = '<div class="cluster-icon"><b>' + cluster.getChildCount() + '</b></div>';
+                    return new L.DivIcon({
+                        html: html
+                    });
+                },
                 unique: function (feature) {
-                    return feature.id; 
-                }
-            }, {
-                style: style,
+                    return feature.properties.id;
+                },
+                pointToLayer: function (feature, latlng) {
+                    var html = '<div class="my-icon"></div>';
+                    return L.marker(latlng,
+                        {
+                            icon: L.divIcon({
+                                html: html
+                            })
+                        }
+                    );
+                },
+                style: function (feature) {
+                    return {color: "#ff0000"};
+                },
                 onEachFeature: function (feature, layer) {
                     if (feature.properties) {
-                        var popupString = '<div class="popup">';
-                        for (var k in feature.properties) {
-                            var v = feature.properties[k];
-                            popupString += k + ': ' + v + '<br />';
-                        }
+                        var popupString = '<div class="place-popup">';
+                        popupString += '<h4>' + feature.properties.name + '</h4>';
                         popupString += '</div>';
                         layer.bindPopup(popupString);
                     }
                     if (!(layer instanceof L.Point)) {
                         layer.on('mouseover', function () {
-                            layer.setStyle(hoverStyle);
                         });
                         layer.on('mouseout', function () {
-                            layer.setStyle(style);
                         });
                     }
                 }
             }
         );
-        map.addLayer(geojsonTileLayer);
+        map.addLayer(geojsonClusterTileLayer);
 
 ### Constructor
-    L.TileLayer.GeoJSON( <String> urlTemplate, <GeoJSONTileLayer options> options?, <GeoJSON options> geojsonOptions? )
+    L.TileLayer.ClusteredGeoJSON( <String> urlTemplate, <GeoJSONTileLayer options> options?, <GeoJSON options> geojsonOptions? )
 
 ### URL Template
 A string of the following form, that returns valid GeoJSON.
 
     'http://{s}.somedomain.com/blabla/{z}/{x}/{y}.json'
 
-### GeoJSONTileLayer options
+### ClusteredGeoJSON options
 * `clipTiles (boolean) (default = false)`: If `true`, clips tile feature geometries to their tile boundaries using SVG clipping.
 * `unique (function)`: If set, the feature's are grouped into GeometryCollection GeoJSON objects. Each group is defined by the key returned by this function, with the feature object as the first argument.
+* additional options from L.markerClusterGroup
 
 ### GeoJSON options
 Options that will be passed to the resulting L.GeoJSON layer: [http://leafletjs.com/reference.html#geojson-options](http://leafletjs.com/reference.html#geojson-options)
