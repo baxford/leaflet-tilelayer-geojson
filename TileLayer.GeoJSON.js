@@ -46,28 +46,29 @@ L.TileLayer.Ajax = L.TileLayer.extend({
 });
 
 
-L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
+L.TileLayer.ClusteredGeoJSON = L.TileLayer.Ajax.extend({
     // Store each GeometryCollection's layer by key, if options.unique function is present
     _keyLayers: {},
-
+    _clusterLayer:  null,
     // Used to calculate svg path string for clip path elements
     _clipPathRectangles: {},
 
     initialize: function (url, options, geojsonOptions) {
         L.TileLayer.Ajax.prototype.initialize.call(this, url, options);
         this.geojsonLayer = new L.GeoJSON(null, geojsonOptions);
+        this._clusterLayer = new L.markerClusterGroup(options);
     },
     onAdd: function (map) {
         this._map = map;
         L.TileLayer.Ajax.prototype.onAdd.call(this, map);
-        map.addLayer(this.geojsonLayer);
+        map.addLayer(this._clusterLayer);
     },
     onRemove: function (map) {
-        map.removeLayer(this.geojsonLayer);
+        map.removeLayer(this._clusterLayer);
         L.TileLayer.Ajax.prototype.onRemove.call(this, map);
     },
     _reset: function () {
-        this.geojsonLayer.clearLayers();
+        this._clusterLayer.clearLayers();
         this._keyLayers = {};
         this._removeOldClipPaths();
         L.TileLayer.Ajax.prototype._reset.apply(this, arguments);
@@ -131,10 +132,10 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
 
             // Create a hidden L.Rectangle to represent the tile's area
             var tileSize = this.options.tileSize,
-            nwPoint = tilePoint.multiplyBy(tileSize),
-            sePoint = nwPoint.add([tileSize, tileSize]),
-            nw = this._map.unproject(nwPoint),
-            se = this._map.unproject(sePoint);
+                nwPoint = tilePoint.multiplyBy(tileSize),
+                sePoint = nwPoint.add([tileSize, tileSize]),
+                nw = this._map.unproject(nwPoint),
+                se = this._map.unproject(sePoint);
             this._clipPathRectangles[clipPathId] = new L.Rectangle(new L.LatLngBounds([nw, se]), {
                 opacity: 0,
                 fillOpacity: 0,
@@ -154,7 +155,9 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
 
         // Add the clip-path attribute to reference the id of the tile clipPath
         this._recurseLayerUntilPath(function (pathLayer) {
-            pathLayer._container.setAttribute('clip-path', 'url(#' + clipPathId + ')');
+            if (pathLayer._container) {
+                pathLayer._container.setAttribute('clip-path', 'url(#' + clipPathId + ')');
+            }
         }, layer);
     },
 
@@ -178,11 +181,11 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
             return this;
         }
 
-        var options = this.geojsonLayer.options;
+        var options = this._clusterLayer.options;
 
         if (options.filter && !options.filter(geojson)) { return; }
 
-        var parentLayer = this.geojsonLayer;
+        var parentLayer = this._clusterLayer;
         var incomingLayer = null;
         if (this.options.unique && typeof(this.options.unique) === 'function') {
             var key = this.options.unique(geojson);
@@ -200,7 +203,7 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
             try {
                 incomingLayer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng);
             }
-            // Ignore GeoJSON objects that could not be parsed
+                // Ignore GeoJSON objects that could not be parsed
             catch (e) {
                 return this;
             }
@@ -222,7 +225,7 @@ L.TileLayer.GeoJSON = L.TileLayer.Ajax.extend({
             try {
                 incomingLayer = L.GeoJSON.geometryToLayer(geojson, options.pointToLayer, options.coordsToLatLng);
             }
-            // Ignore GeoJSON objects that could not be parsed
+                // Ignore GeoJSON objects that could not be parsed
             catch (e) {
                 return this;
             }
