@@ -42,24 +42,33 @@ L.TileLayer.Ajax = L.TileLayer.extend({
         if (this._map && this._map._panTransition && this._map._panTransition._inProgress) { return; }
         if (this._tilesToLoad < 0) { this._tilesToLoad = 0; }
         L.TileLayer.prototype._update.apply(this, arguments);
+    },
+    _stopLoadingImages: function() {
+        // TODO BA - could cancel http requests here
+        if (this._requests && this._requests.length) {
+            for (var r in this._requests) {
+                var req = this._requests[r];
+                if (req) {
+                    req.abort();
+                }
+            }
+        }
     }
 });
 
 
 L.TileLayer.ClusteredGeoJSON = L.TileLayer.Ajax.extend({
-    // Store each GeometryCollection's layer by key, if options.unique function is present
-    _keyLayers: {},
     _clusterLayer:  null,
     // Used to calculate svg path string for clip path elements
     _clipPathRectangles: {},
 
     initialize: function (url, options, geojsonOptions) {
         L.TileLayer.Ajax.prototype.initialize.call(this, url, options);
-        this.geojsonLayer = new L.GeoJSON(null, geojsonOptions);
         this._clusterLayer = new L.markerClusterGroup(options);
     },
     onAdd: function (map) {
         this._map = map;
+        var self = this;
         L.TileLayer.Ajax.prototype.onAdd.call(this, map);
         map.addLayer(this._clusterLayer);
     },
@@ -69,7 +78,7 @@ L.TileLayer.ClusteredGeoJSON = L.TileLayer.Ajax.extend({
     },
     _reset: function () {
         this._clusterLayer.clearLayers();
-        this._keyLayers = {};
+        //this._keyLayers = {};
         this._removeOldClipPaths();
         L.TileLayer.Ajax.prototype._reset.apply(this, arguments);
     },
@@ -192,12 +201,12 @@ L.TileLayer.ClusteredGeoJSON = L.TileLayer.Ajax.extend({
 
             // When creating the layer for a unique key,
             // Force the geojson to be a geometry collection
-            if (!(key in this._keyLayers && geojson.geometry.type !== 'GeometryCollection')) {
-                geojson.geometry = {
-                    type: 'GeometryCollection',
-                    geometries: [geojson.geometry]
-                };
-            }
+            //if (!(key in this._keyLayers && geojson.geometry.type !== 'GeometryCollection')) {
+            //    geojson.geometry = {
+            //        type: 'GeometryCollection',
+            //        geometries: [geojson.geometry]
+            //    };
+            //}
 
             // Transform the geojson into a new Layer
             try {
@@ -206,17 +215,6 @@ L.TileLayer.ClusteredGeoJSON = L.TileLayer.Ajax.extend({
                 // Ignore GeoJSON objects that could not be parsed
             catch (e) {
                 return this;
-            }
-
-            incomingLayer.feature = L.GeoJSON.asFeature(geojson);
-            // Add the incoming Layer to existing key's GeometryCollection
-            if (key in this._keyLayers) {
-                parentLayer = this._keyLayers[key];
-                parentLayer.feature.geometry.geometries.push(geojson.geometry);
-            }
-            // Convert the incoming GeoJSON feature into a new GeometryCollection layer
-            else {
-                this._keyLayers[key] = incomingLayer;
             }
         }
         // Add the incoming geojson feature to the L.GeoJSON Layer
@@ -229,11 +227,9 @@ L.TileLayer.ClusteredGeoJSON = L.TileLayer.Ajax.extend({
             catch (e) {
                 return this;
             }
-            incomingLayer.feature = L.GeoJSON.asFeature(geojson);
+            //incomingLayer.feature = L.GeoJSON.asFeature(geojson);
         }
         incomingLayer.defaultOptions = incomingLayer.options;
-
-        this.geojsonLayer.resetStyle(incomingLayer);
 
         if (options.onEachFeature) {
             options.onEachFeature(geojson, incomingLayer);
